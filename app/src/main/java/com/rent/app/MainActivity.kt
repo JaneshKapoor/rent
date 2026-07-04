@@ -459,7 +459,7 @@ private fun AboutTab() {
             fontSize = 13.sp
         )
         Text(
-            "Rent Paid ✅ when today's contributions meet your threshold; Rent Due ⚠️ " +
+            "Rent Paid :) when today's contributions meet your threshold; Rent Due :( " +
                 "otherwise. Your streak stays intact until a day fully ends unpaid.",
             color = TextSecondary,
             fontSize = 13.sp

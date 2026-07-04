@@ -36,6 +36,7 @@ import com.rent.app.MainActivity
 import com.rent.app.data.ContributionDay
 import com.rent.app.data.ContributionState
 import com.rent.app.data.RentDataStore
+import com.rent.app.work.RefreshScheduler
 
 /**
  * The home-screen widget. Two stacked sections:
@@ -54,6 +55,16 @@ class RentWidget : GlanceAppWidget() {
         val store = RentDataStore(context)
         val state = store.getCachedState() ?: ContributionState.NotConfigured
         val settings = store.getSettings()
+
+        // Auto-refetch: if a username is configured but the cache is missing or
+        // stale, kick a background refresh which redraws the widget when done.
+        // Staleness-based (not day-count) so accounts with short history don't loop.
+        val ageMs = System.currentTimeMillis() - state.lastUpdatedEpochMs
+        val stale = state.lastUpdatedEpochMs == 0L || ageMs > STALE_AFTER_MS
+        if (settings.username.isNotBlank() && (!state.configured || stale)) {
+            RefreshScheduler.refreshNow(context)
+        }
+
         val appearance = WidgetAppearance(
             palette = settings.palette,
             darkMode = settings.darkMode,
@@ -78,6 +89,9 @@ private const val CARD_H_PADDING = 12f
 private const val CELL_GAP = 2f
 private const val MIN_CELL = 3f
 private const val MAX_CELL = 16f
+
+// Auto-refetch the widget's data when the cache is older than this.
+private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // 6 hours
 
 /** Appearance settings the widget reads at render time. */
 data class WidgetAppearance(
@@ -117,7 +131,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
     val paid = state.rentPaidToday
     // Main text AND status follow the chosen palette (green / violet / amber).
     val accent = palette.accent
-    val statusText = if (paid) "Rent Paid ✅" else "Rent Due ⚠️"
+    val statusText = if (paid) "Rent Paid :)" else "Rent Due :("
     val statusColor = palette.accent
     val subtitle = if (paid) {
         "${state.todayCount} contributions today"
