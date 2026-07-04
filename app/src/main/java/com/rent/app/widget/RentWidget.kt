@@ -9,6 +9,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -114,17 +115,30 @@ private fun WidgetContent(
             modifier = card.clickable(actionRunCallback<RefreshAction>()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Flex spacers center the status + graph block vertically.
+            Spacer(GlanceModifier.defaultWeight())
             StatusSection(state, appearance.palette)
-            Spacer(GlanceModifier.height(8.dp))
-            // Heatmap fills all remaining vertical space -> as big as possible.
-            Image(
-                provider = ImageProvider(heatmap),
-                contentDescription = "GitHub contribution heatmap",
-                contentScale = ContentScale.FillBounds,
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
-            )
+            Spacer(GlanceModifier.height(10.dp))
+            Heatmap(heatmap)
+            Spacer(GlanceModifier.defaultWeight())
         }
     }
+}
+
+@Composable
+private fun Heatmap(bitmap: Bitmap) {
+    // Height follows the bitmap's true aspect ratio so cells stay SQUARE while
+    // the grid still spans the full card width.
+    val widthDp = LocalSize.current.width.value - CARD_H_PADDING * 2
+    val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
+    val heightDp = (widthDp * ratio).coerceAtLeast(20f)
+
+    Image(
+        provider = ImageProvider(bitmap),
+        contentDescription = "GitHub contribution heatmap",
+        contentScale = ContentScale.FillBounds,
+        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp)
+    )
 }
 
 @Composable
