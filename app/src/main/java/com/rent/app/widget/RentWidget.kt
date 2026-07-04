@@ -9,6 +9,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -85,6 +86,9 @@ class RentWidget : GlanceAppWidget() {
 
 private const val CARD_H_PADDING = 8
 private const val CARD_V_PADDING = 6
+// Approx vertical space taken by the text block + paddings, reserved so the
+// heatmap height can be capped to fit all 7 rows without clipping.
+private const val GRAPH_HEIGHT_RESERVE = 132f
 private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // auto-refetch when older than 6h
 
 /** Appearance settings the widget reads at render time. */
@@ -120,19 +124,33 @@ private fun WidgetContent(
             modifier = card.clickable(actionRunCallback<RefreshAction>()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Flex spacers vertically center the status + graph block for balance.
+            Spacer(GlanceModifier.defaultWeight())
             StatusSection(state, appearance.palette)
             Spacer(GlanceModifier.height(8.dp))
-            // Graph takes the remaining vertical space. ContentScale.Fit keeps
-            // cells square and scales to fit whichever of width/height is the
-            // binding constraint, so it never clips for smaller week counts.
-            Image(
-                provider = ImageProvider(heatmap),
-                contentDescription = "GitHub contribution heatmap",
-                contentScale = ContentScale.Fit,
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
-            )
+            Heatmap(heatmap)
+            Spacer(GlanceModifier.defaultWeight())
         }
     }
+}
+
+@Composable
+private fun Heatmap(bitmap: Bitmap) {
+    val size = LocalSize.current
+    val availWidth = size.width.value - CARD_H_PADDING * 2
+    val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
+    // Prefer a full-width square grid, but cap the height so all 7 rows fit the
+    // widget (prevents the bottom row clipping at smaller week counts). When
+    // capped, cells become slightly wider than tall rather than getting cut off.
+    val heightCap = (size.height.value - GRAPH_HEIGHT_RESERVE).coerceAtLeast(30f)
+    val heightDp = (availWidth * ratio).coerceIn(20f, heightCap)
+
+    Image(
+        provider = ImageProvider(bitmap),
+        contentDescription = "GitHub contribution heatmap",
+        contentScale = ContentScale.FillBounds,
+        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp)
+    )
 }
 
 @Composable
