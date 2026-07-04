@@ -9,7 +9,6 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -107,7 +106,12 @@ private fun WidgetContent(
         .fillMaxSize()
         .background(Palette.cardBackground(appearance.darkMode, appearance.opacity))
         .cornerRadius(20.dp)
-        .padding(horizontal = CARD_H_PADDING.dp, vertical = (CARD_V_PADDING + appearance.marginDp).dp)
+        .padding(
+            start = CARD_H_PADDING.dp,
+            end = CARD_H_PADDING.dp,
+            top = (CARD_V_PADDING + appearance.marginDp).dp,
+            bottom = (CARD_V_PADDING + 8 + appearance.marginDp).dp
+        )
 
     if (!state.configured || state.days.isEmpty() && state.lastUpdatedEpochMs == 0L) {
         PlaceholderContent(card.clickable(actionStartActivity<MainActivity>()))
@@ -116,30 +120,19 @@ private fun WidgetContent(
             modifier = card.clickable(actionRunCallback<RefreshAction>()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Flex spacers center the status + graph block vertically.
-            Spacer(GlanceModifier.defaultWeight())
             StatusSection(state, appearance.palette)
-            Spacer(GlanceModifier.height(10.dp))
-            Heatmap(heatmap)
-            Spacer(GlanceModifier.defaultWeight())
+            Spacer(GlanceModifier.height(8.dp))
+            // Graph takes the remaining vertical space. ContentScale.Fit keeps
+            // cells square and scales to fit whichever of width/height is the
+            // binding constraint, so it never clips for smaller week counts.
+            Image(
+                provider = ImageProvider(heatmap),
+                contentDescription = "GitHub contribution heatmap",
+                contentScale = ContentScale.Fit,
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+            )
         }
     }
-}
-
-@Composable
-private fun Heatmap(bitmap: Bitmap) {
-    // Height follows the bitmap's true aspect ratio so cells stay SQUARE while
-    // the grid still spans the full card width.
-    val widthDp = LocalSize.current.width.value - CARD_H_PADDING * 2
-    val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-    val heightDp = (widthDp * ratio).coerceAtLeast(20f)
-
-    Image(
-        provider = ImageProvider(bitmap),
-        contentDescription = "GitHub contribution heatmap",
-        contentScale = ContentScale.FillBounds,
-        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp)
-    )
 }
 
 @Composable
