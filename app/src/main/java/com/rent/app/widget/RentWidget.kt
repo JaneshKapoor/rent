@@ -84,7 +84,8 @@ class RentWidget : GlanceAppWidget() {
     }
 }
 
-private const val CARD_H_PADDING = 14
+private const val CARD_H_PADDING = 8
+private const val CARD_V_PADDING = 6
 private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // auto-refetch when older than 6h
 
 /** Appearance settings the widget reads at render time. */
@@ -106,7 +107,7 @@ private fun WidgetContent(
         .fillMaxSize()
         .background(Palette.cardBackground(appearance.darkMode, appearance.opacity))
         .cornerRadius(20.dp)
-        .padding(horizontal = CARD_H_PADDING.dp, vertical = (12 + appearance.marginDp).dp)
+        .padding(horizontal = CARD_H_PADDING.dp, vertical = (CARD_V_PADDING + appearance.marginDp).dp)
 
     if (!state.configured || state.days.isEmpty() && state.lastUpdatedEpochMs == 0L) {
         PlaceholderContent(card.clickable(actionStartActivity<MainActivity>()))
@@ -159,7 +160,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = state.streak.toString(),
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 34.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -169,7 +170,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = "day streak",
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             )
@@ -179,7 +180,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = statusText,
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -188,7 +189,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = subtitle,
             style = TextStyle(
                 color = ColorProvider(Palette.TextSecondary),
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 textAlign = TextAlign.Center
             )
         )

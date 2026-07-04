@@ -15,9 +15,9 @@ import com.rent.app.data.RentDataStore
  */
 object HeatmapRenderer {
 
-    private const val CELL = 24      // px per cell in the source bitmap
-    private const val GAP = 5        // px gap between cells
-    private const val RADIUS = 5f    // rounded corner radius
+    private const val CELL = 26      // px per cell in the source bitmap
+    private const val GAP = 2        // px gap between cells (smaller -> bigger cells)
+    private const val RADIUS = 4f    // rounded corner radius
     private const val ROWS = 7       // days per week (Sun..Sat)
 
     fun render(
