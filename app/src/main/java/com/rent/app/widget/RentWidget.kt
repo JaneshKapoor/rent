@@ -9,7 +9,6 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -116,8 +115,14 @@ private fun WidgetContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             StatusSection(state, appearance.palette)
-            Spacer(GlanceModifier.height(12.dp))
-            Heatmap(heatmap)
+            Spacer(GlanceModifier.height(8.dp))
+            // Heatmap fills all remaining vertical space -> as big as possible.
+            Image(
+                provider = ImageProvider(heatmap),
+                contentDescription = "GitHub contribution heatmap",
+                contentScale = ContentScale.FillBounds,
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+            )
         }
     }
 }
@@ -140,26 +145,27 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = state.streak.toString(),
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 44.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
         )
+        // Number is already shown above, so this is just a label.
         Text(
-            text = if (state.streak == 1) "1 day streak" else "${state.streak} day streak",
+            text = "day streak",
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 13.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             )
         )
-        Spacer(GlanceModifier.height(4.dp))
+        Spacer(GlanceModifier.height(3.dp))
         Text(
             text = statusText,
             style = TextStyle(
                 color = ColorProvider(accent),
-                fontSize = 16.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -168,27 +174,11 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
             text = subtitle,
             style = TextStyle(
                 color = ColorProvider(Palette.TextSecondary),
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 textAlign = TextAlign.Center
             )
         )
     }
-}
-
-@Composable
-private fun Heatmap(bitmap: Bitmap) {
-    // Fill the full card width; height follows the bitmap's aspect ratio so cells
-    // stay square-ish and the whole grid spans edge to edge.
-    val widthDp = LocalSize.current.width.value - CARD_H_PADDING * 2
-    val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-    val heightDp = (widthDp * ratio).coerceAtLeast(24f)
-
-    Image(
-        provider = ImageProvider(bitmap),
-        contentDescription = "GitHub contribution heatmap",
-        contentScale = ContentScale.FillBounds,
-        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp)
-    )
 }
 
 @Composable
