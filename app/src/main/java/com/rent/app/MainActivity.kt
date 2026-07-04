@@ -1,5 +1,7 @@
 package com.rent.app
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -60,6 +62,7 @@ import com.rent.app.data.ContributionRepository
 import com.rent.app.data.RentDataStore
 import com.rent.app.widget.HeatmapPalette
 import com.rent.app.widget.RentWidget
+import com.rent.app.widget.RentWidgetReceiver
 import com.rent.app.work.RefreshScheduler
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -430,6 +433,7 @@ private fun Divider() {
 
 @Composable
 private fun AboutTab() {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -439,6 +443,12 @@ private fun AboutTab() {
     ) {
         Text("Rent", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text("Version 1.0", color = TextSecondary, fontSize = 13.sp)
+        OutlinedButton(
+            onClick = { requestPinWidget(context) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Add Rent widget to home screen")
+        }
         Spacer(Modifier.height(4.dp))
         Text(
             "Pay your GitHub rent. Rent shows a home-screen widget with your current " +
@@ -459,6 +469,24 @@ private fun AboutTab() {
             color = TextSecondary,
             fontSize = 13.sp
         )
+    }
+}
+
+/**
+ * Asks the launcher to pin the Rent widget to the home screen (API 26+).
+ * Falls back to a hint if the launcher doesn't support pinning.
+ */
+private fun requestPinWidget(context: Context) {
+    val manager = context.getSystemService(AppWidgetManager::class.java)
+    val provider = ComponentName(context, RentWidgetReceiver::class.java)
+    if (manager != null && manager.isRequestPinAppWidgetSupported) {
+        manager.requestPinAppWidget(provider, null, null)
+    } else {
+        Toast.makeText(
+            context,
+            "Add it from your launcher's widget tray (long-press home → Widgets → Rent).",
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
 
