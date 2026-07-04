@@ -1,11 +1,14 @@
 package com.rent.app.widget
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -19,32 +22,27 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
-import androidx.glance.layout.Row
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.size
-import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.rent.app.MainActivity
-import com.rent.app.data.ContributionDay
 import com.rent.app.data.ContributionState
 import com.rent.app.data.RentDataStore
 import com.rent.app.work.RefreshScheduler
 
 /**
  * The home-screen widget. Two stacked sections:
- *   TOP: streak number + "Rent Paid ✅" / "Rent Due ⚠️" status.
- *   BOTTOM: GitHub-style contribution heatmap (7 rows x up to 12 week columns).
- *
- * State is read from the DataStore cache so the widget renders instantly; a tap
- * kicks off an immediate background refresh (see [RefreshAction]).
+ *   TOP: streak number + "Rent Paid :)" / "Rent Due :(" status.
+ *   BOTTOM: GitHub-style contribution heatmap, drawn as a single bitmap so it
+ *   reliably fills the full width regardless of week count (see [HeatmapRenderer]).
  */
 class RentWidget : GlanceAppWidget() {
 
@@ -58,7 +56,6 @@ class RentWidget : GlanceAppWidget() {
 
         // Auto-refetch: if a username is configured but the cache is missing or
         // stale, kick a background refresh which redraws the widget when done.
-        // Staleness-based (not day-count) so accounts with short history don't loop.
         val ageMs = System.currentTimeMillis() - state.lastUpdatedEpochMs
         val stale = state.lastUpdatedEpochMs == 0L || ageMs > STALE_AFTER_MS
         if (settings.username.isNotBlank() && (!state.configured || stale)) {
@@ -72,8 +69,10 @@ class RentWidget : GlanceAppWidget() {
             marginDp = settings.marginDp,
             weeksToShow = settings.weeksToShow
         )
+        val heatmap = HeatmapRenderer.render(state.days, appearance.palette, appearance.weeksToShow)
+
         provideContent {
-            WidgetContent(state, appearance)
+            WidgetContent(state, appearance, heatmap)
         }
     }
 
@@ -85,13 +84,8 @@ class RentWidget : GlanceAppWidget() {
     }
 }
 
-private const val CARD_H_PADDING = 12f
-private const val CELL_GAP = 2f
-private const val MIN_CELL = 3f
-private const val MAX_CELL = 16f
-
-// Auto-refetch the widget's data when the cache is older than this.
-private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // 6 hours
+private const val CARD_H_PADDING = 14
+private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // auto-refetch when older than 6h
 
 /** Appearance settings the widget reads at render time. */
 data class WidgetAppearance(
@@ -103,9 +97,11 @@ data class WidgetAppearance(
 )
 
 @Composable
-private fun WidgetContent(state: ContributionState, appearance: WidgetAppearance) {
-    // The card fills the full width/height the launcher gives us; the heatmap
-    // spans that width with cells sized to fit the chosen number of weeks.
+private fun WidgetContent(
+    state: ContributionState,
+    appearance: WidgetAppearance,
+    heatmap: Bitmap
+) {
     val card = GlanceModifier
         .fillMaxSize()
         .background(Palette.cardBackground(appearance.darkMode, appearance.opacity))
@@ -121,7 +117,7 @@ private fun WidgetContent(state: ContributionState, appearance: WidgetAppearance
         ) {
             StatusSection(state, appearance.palette)
             Spacer(GlanceModifier.height(12.dp))
-            Heatmap(state.days, appearance.palette, appearance.weeksToShow)
+            Heatmap(heatmap)
         }
     }
 }
@@ -132,7 +128,6 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
     // Main text AND status follow the chosen palette (green / violet / amber).
     val accent = palette.accent
     val statusText = if (paid) "Rent Paid :)" else "Rent Due :("
-    val statusColor = palette.accent
     val subtitle = if (paid) {
         "${state.todayCount} contributions today"
     } else {
@@ -163,7 +158,7 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
         Text(
             text = statusText,
             style = TextStyle(
-                color = ColorProvider(statusColor),
+                color = ColorProvider(accent),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -181,42 +176,19 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
 }
 
 @Composable
-private fun Heatmap(days: List<ContributionDay>, palette: HeatmapPalette, weeksToShow: Int) {
-    val columns = weeksToShow.coerceIn(RentDataStore.MIN_WEEKS, RentDataStore.MAX_WEEKS)
-    val actual = buildWeeks(days).takeLast(columns)
-    // Always render exactly `columns` weeks so the grid fills the full width even
-    // if the cached history is shorter — pad with empty (older) weeks on the left.
-    val emptyWeek = List<ContributionDay?>(7) { null }
-    val weeks = if (actual.size < columns) {
-        List(columns - actual.size) { emptyWeek } + actual
-    } else {
-        actual
-    }
+private fun Heatmap(bitmap: Bitmap) {
+    // Fill the full card width; height follows the bitmap's aspect ratio so cells
+    // stay square-ish and the whole grid spans edge to edge.
+    val widthDp = LocalSize.current.width.value - CARD_H_PADDING * 2
+    val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
+    val heightDp = (widthDp * ratio).coerceAtLeast(24f)
 
-    // Size each cell so the whole grid spans the widget's width (GitHub-style
-    // full-year graph). Cell size shrinks/grows with the number of weeks.
-    val widthDp = LocalSize.current.width.value
-    val available = widthDp - CARD_H_PADDING * 2
-    val cell = ((available - (columns - 1) * CELL_GAP) / columns).coerceIn(MIN_CELL, MAX_CELL)
-
-    Row(modifier = GlanceModifier.fillMaxWidth()) {
-        weeks.forEachIndexed { index, week ->
-            Column {
-                week.forEach { day ->
-                    Box(
-                        modifier = GlanceModifier
-                            .size(cell.dp)
-                            .background(palette.heatColor(day?.count ?: 0))
-                            .cornerRadius(2.dp)
-                    ) {}
-                    Spacer(GlanceModifier.height(CELL_GAP.dp))
-                }
-            }
-            if (index != weeks.lastIndex) {
-                Spacer(GlanceModifier.width(CELL_GAP.dp))
-            }
-        }
-    }
+    Image(
+        provider = ImageProvider(bitmap),
+        contentDescription = "GitHub contribution heatmap",
+        contentScale = ContentScale.FillBounds,
+        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp)
+    )
 }
 
 @Composable
@@ -244,19 +216,4 @@ private fun PlaceholderContent(modifier: GlanceModifier) {
             )
         }
     }
-}
-
-/**
- * Arranges a flat oldest-first day list into GitHub-style week columns of 7
- * rows each (row 0 = Sunday). The first column is front-padded with nulls so
- * weekday alignment is preserved.
- */
-private fun buildWeeks(days: List<ContributionDay>): List<List<ContributionDay?>> {
-    if (days.isEmpty()) return emptyList()
-    val padded = ArrayList<ContributionDay?>()
-    // dayOfWeek: MONDAY=1..SUNDAY=7 ; map to Sunday=0..Saturday=6.
-    val leadingPad = days.first().localDate.dayOfWeek.value % 7
-    repeat(leadingPad) { padded.add(null) }
-    padded.addAll(days)
-    return padded.chunked(7)
 }
