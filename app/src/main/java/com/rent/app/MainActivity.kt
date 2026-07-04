@@ -253,9 +253,6 @@ private fun SettingsTab(store: RentDataStore) {
                 val user = username.trim()
                 val th = threshold.toIntOrNull() ?: RentDataStore.DEFAULT_THRESHOLD
                 val trimmedToken = token.trim()
-                val dataChanged = user != initialUsername ||
-                    trimmedToken != initialToken ||
-                    th != initialThreshold
                 saving = true
                 status = "Saving…"
                 scope.launch {
@@ -272,10 +269,9 @@ private fun SettingsTab(store: RentDataStore) {
                     )
                     RefreshScheduler.applyAutoUpdate(appContext, autoUpdate)
 
-                    val needsFetch = user.isNotBlank() && (dataChanged || initialUsername.isBlank())
-                    if (needsFetch) {
-                        // Fetch inline (not via WorkManager) so the widget updates
-                        // immediately instead of waiting for the job to be picked up.
+                    if (user.isNotBlank()) {
+                        // Always fetch a full year of fresh data inline so the
+                        // heatmap has enough history for the selected week count.
                         status = "Fetching latest from GitHub…"
                         ContributionRepository.get(appContext).refresh()
                     }
@@ -288,8 +284,7 @@ private fun SettingsTab(store: RentDataStore) {
                     saving = false
                     status = when {
                         user.isBlank() -> "Enter a username to start tracking."
-                        needsFetch -> "Saved & widget refreshed."
-                        else -> "Saved. Widget updated."
+                        else -> "Saved & widget refreshed."
                     }
                 }
             },

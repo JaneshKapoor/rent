@@ -169,14 +169,21 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
 @Composable
 private fun Heatmap(days: List<ContributionDay>, palette: HeatmapPalette, weeksToShow: Int) {
     val columns = weeksToShow.coerceIn(RentDataStore.MIN_WEEKS, RentDataStore.MAX_WEEKS)
-    val weeks = buildWeeks(days).takeLast(columns)
-    val cols = weeks.size.coerceAtLeast(1)
+    val actual = buildWeeks(days).takeLast(columns)
+    // Always render exactly `columns` weeks so the grid fills the full width even
+    // if the cached history is shorter — pad with empty (older) weeks on the left.
+    val emptyWeek = List<ContributionDay?>(7) { null }
+    val weeks = if (actual.size < columns) {
+        List(columns - actual.size) { emptyWeek } + actual
+    } else {
+        actual
+    }
 
     // Size each cell so the whole grid spans the widget's width (GitHub-style
     // full-year graph). Cell size shrinks/grows with the number of weeks.
     val widthDp = LocalSize.current.width.value
     val available = widthDp - CARD_H_PADDING * 2
-    val cell = ((available - (cols - 1) * CELL_GAP) / cols).coerceIn(MIN_CELL, MAX_CELL)
+    val cell = ((available - (columns - 1) * CELL_GAP) / columns).coerceIn(MIN_CELL, MAX_CELL)
 
     Row(modifier = GlanceModifier.fillMaxWidth()) {
         weeks.forEachIndexed { index, week ->
