@@ -253,6 +253,13 @@ private fun SettingsTab(store: RentDataStore) {
                 val user = username.trim()
                 val th = threshold.toIntOrNull() ?: RentDataStore.DEFAULT_THRESHOLD
                 val trimmedToken = token.trim()
+                // Only the data-related fields need a network re-fetch; appearance
+                // changes (weeks, color, opacity, margin…) just re-render instantly.
+                val needsFetch = user.isNotBlank() &&
+                    (initialUsername.isBlank() ||
+                        user != initialUsername ||
+                        trimmedToken != initialToken ||
+                        th != initialThreshold)
                 saving = true
                 status = "Saving…"
                 scope.launch {
@@ -269,14 +276,14 @@ private fun SettingsTab(store: RentDataStore) {
                     )
                     RefreshScheduler.applyAutoUpdate(appContext, autoUpdate)
 
-                    if (user.isNotBlank()) {
-                        // Always fetch a full year of fresh data inline so the
-                        // heatmap has enough history for the selected week count.
+                    // Instant appearance re-render (no network).
+                    RentWidget.updateAll(appContext)
+
+                    if (needsFetch) {
                         status = "Fetching latest from GitHub…"
                         ContributionRepository.get(appContext).refresh()
+                        RentWidget.updateAll(appContext)
                     }
-                    // Re-render every widget instance with the new state/appearance.
-                    RentWidget.updateAll(appContext)
 
                     initialUsername = user
                     initialToken = trimmedToken
@@ -284,7 +291,8 @@ private fun SettingsTab(store: RentDataStore) {
                     saving = false
                     status = when {
                         user.isBlank() -> "Enter a username to start tracking."
-                        else -> "Saved & widget refreshed."
+                        needsFetch -> "Saved & widget refreshed."
+                        else -> "Saved. Widget updated."
                     }
                 }
             },

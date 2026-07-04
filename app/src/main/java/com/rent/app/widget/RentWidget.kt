@@ -86,9 +86,6 @@ class RentWidget : GlanceAppWidget() {
 
 private const val CARD_H_PADDING = 8
 private const val CARD_V_PADDING = 6
-// Approx vertical space taken by the text block + paddings, reserved so the
-// heatmap height can be capped to fit all 7 rows without clipping.
-private const val GRAPH_HEIGHT_RESERVE = 132f
 private const val STALE_AFTER_MS = 6 * 60 * 60 * 1000L // auto-refetch when older than 6h
 
 /** Appearance settings the widget reads at render time. */
@@ -136,14 +133,11 @@ private fun WidgetContent(
 
 @Composable
 private fun Heatmap(bitmap: Bitmap) {
-    val size = LocalSize.current
-    val availWidth = size.width.value - CARD_H_PADDING * 2
+    // Full-width, square cells: height follows the grid's true aspect ratio so
+    // each day cell is square while the grid spans the full card width.
+    val availWidth = LocalSize.current.width.value - CARD_H_PADDING * 2
     val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-    // Prefer a full-width square grid, but cap the height so all 7 rows fit the
-    // widget (prevents the bottom row clipping at smaller week counts). When
-    // capped, cells become slightly wider than tall rather than getting cut off.
-    val heightCap = (size.height.value - GRAPH_HEIGHT_RESERVE).coerceAtLeast(30f)
-    val heightDp = (availWidth * ratio).coerceIn(20f, heightCap)
+    val heightDp = (availWidth * ratio).coerceAtLeast(20f)
 
     Image(
         provider = ImageProvider(bitmap),
