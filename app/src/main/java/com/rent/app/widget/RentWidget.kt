@@ -121,8 +121,8 @@ private fun WidgetContent(
             modifier = card.clickable(actionRunCallback<RefreshAction>()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Flex spacers vertically center the status + graph block for balance.
-            Spacer(GlanceModifier.defaultWeight())
+            // Top-align the content and let the leftover space sit BELOW the graph
+            // so the bottom row is never pushed against the card edge.
             StatusSection(state, appearance.palette)
             Spacer(GlanceModifier.height(8.dp))
             Heatmap(heatmap)
