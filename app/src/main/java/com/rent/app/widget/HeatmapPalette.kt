@@ -10,10 +10,13 @@ import androidx.compose.ui.graphics.Color
  */
 enum class HeatmapPalette(
     val displayName: String,
+    /** Accent used for the main streak text so it matches the chosen palette. */
+    val accent: Color,
     private val steps: List<Color>
 ) {
     GREEN(
         displayName = "GitHub green",
+        accent = Color(0xFF3FB950),
         steps = listOf(
             Color(0xFF0E4429),
             Color(0xFF006D32),
@@ -23,6 +26,7 @@ enum class HeatmapPalette(
     ),
     PURPLE(
         displayName = "Violet",
+        accent = Color(0xFFB392F0),
         steps = listOf(
             Color(0xFF3A1D6E),
             Color(0xFF6E40C9),
@@ -32,6 +36,7 @@ enum class HeatmapPalette(
     ),
     AMBER(
         displayName = "Amber",
+        accent = Color(0xFFFFC93C),
         steps = listOf(
             Color(0xFF5C3B00),
             Color(0xFFB86E00),

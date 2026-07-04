@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rent.app.data.ContributionRepository
 import com.rent.app.data.RentDataStore
 import com.rent.app.widget.HeatmapPalette
 import com.rent.app.widget.RentWidget
@@ -123,8 +124,10 @@ private fun SettingsTab(store: RentDataStore) {
     var darkMode by remember { mutableStateOf(RentDataStore.DEFAULT_DARK_MODE) }
     var opacity by remember { mutableIntStateOf(RentDataStore.DEFAULT_OPACITY) }
     var margin by remember { mutableIntStateOf(RentDataStore.DEFAULT_MARGIN) }
+    var weeks by remember { mutableIntStateOf(RentDataStore.DEFAULT_WEEKS) }
     var autoUpdate by remember { mutableStateOf(RentDataStore.DEFAULT_AUTO_UPDATE) }
     var status by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
 
     // Track the data-affecting fields so we only re-fetch when they change.
     var initialUsername by remember { mutableStateOf("") }
@@ -142,6 +145,7 @@ private fun SettingsTab(store: RentDataStore) {
             darkMode = s.darkMode
             opacity = s.backgroundOpacity
             margin = s.marginDp
+            weeks = s.weeksToShow
             autoUpdate = s.autoUpdate
             initialUsername = s.username
             initialToken = s.token
@@ -194,6 +198,15 @@ private fun SettingsTab(store: RentDataStore) {
         SectionLabel("Contributions color")
         PalettePicker(selected = palette, onSelect = { palette = it })
 
+        SliderRow(
+            title = "Weeks to show",
+            valueLabel = if (weeks == 1) "1 week" else "$weeks weeks",
+            value = weeks.toFloat(),
+            range = RentDataStore.MIN_WEEKS.toFloat()..RentDataStore.MAX_WEEKS.toFloat(),
+            onChange = { weeks = it.roundToInt() }
+        )
+        HelperText("How many weeks of the contribution graph the widget displays.")
+
         DarkModeRow(checked = darkMode, onChange = { darkMode = it })
 
         SliderRow(
@@ -240,6 +253,8 @@ private fun SettingsTab(store: RentDataStore) {
                 val dataChanged = user != initialUsername ||
                     trimmedToken != initialToken ||
                     th != initialThreshold
+                saving = true
+                status = "Saving…"
                 scope.launch {
                     store.saveSettings(
                         username = user,
@@ -249,28 +264,36 @@ private fun SettingsTab(store: RentDataStore) {
                         darkMode = darkMode,
                         backgroundOpacity = opacity,
                         marginDp = margin,
-                        autoUpdate = autoUpdate
+                        autoUpdate = autoUpdate,
+                        weeksToShow = weeks
                     )
                     RefreshScheduler.applyAutoUpdate(appContext, autoUpdate)
-                    // Instant appearance re-render.
-                    RentWidget.updateAll(appContext)
-                    // Only hit the network when data-related fields changed.
-                    if (user.isNotBlank() && (dataChanged || initialUsername.isBlank())) {
-                        RefreshScheduler.refreshNow(appContext)
+
+                    val needsFetch = user.isNotBlank() && (dataChanged || initialUsername.isBlank())
+                    if (needsFetch) {
+                        // Fetch inline (not via WorkManager) so the widget updates
+                        // immediately instead of waiting for the job to be picked up.
+                        status = "Fetching latest from GitHub…"
+                        ContributionRepository.get(appContext).refresh()
                     }
+                    // Re-render every widget instance with the new state/appearance.
+                    RentWidget.updateAll(appContext)
+
                     initialUsername = user
                     initialToken = trimmedToken
                     initialThreshold = th
+                    saving = false
                     status = when {
                         user.isBlank() -> "Enter a username to start tracking."
-                        dataChanged -> "Saved. Fetching latest & refreshing widget…"
-                        else -> "Saved. Widget refreshed."
+                        needsFetch -> "Saved & widget refreshed."
+                        else -> "Saved. Widget updated."
                     }
                 }
             },
+            enabled = !saving,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Save & Refresh Widget")
+            Text(if (saving) "Working…" else "Save & Refresh Widget")
         }
 
         status?.let { Text(text = it, color = Accent) }

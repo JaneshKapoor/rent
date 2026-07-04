@@ -22,7 +22,9 @@ object StreakCalculator {
         threshold: Int,
         today: LocalDate = LocalDate.now(),
         now: Instant = Instant.now(),
-        heatmapDays: Int = 84
+        // Keep up to a full year so the widget can show a user-chosen number of
+        // weeks; the widget itself trims to the last N columns at render time.
+        heatmapDays: Int = 371
     ): ContributionState {
         val safeThreshold = threshold.coerceAtLeast(1)
         val byDate: Map<LocalDate, Int> = rawDays.associate { it.localDate to it.count }

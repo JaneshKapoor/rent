@@ -39,6 +39,7 @@ class RentDataStore(private val context: Context) {
         val OPACITY = intPreferencesKey("bg_opacity")
         val MARGIN = intPreferencesKey("margin_dp")
         val AUTO_UPDATE = booleanPreferencesKey("auto_update")
+        val WEEKS = intPreferencesKey("weeks_to_show")
     }
 
     data class Settings(
@@ -49,7 +50,8 @@ class RentDataStore(private val context: Context) {
         val darkMode: Boolean,
         val backgroundOpacity: Int,
         val marginDp: Int,
-        val autoUpdate: Boolean
+        val autoUpdate: Boolean,
+        val weeksToShow: Int
     )
 
     val settingsFlow: Flow<Settings> = context.dataStore.data.map { prefs ->
@@ -61,7 +63,8 @@ class RentDataStore(private val context: Context) {
             darkMode = prefs[Keys.DARK_MODE] ?: DEFAULT_DARK_MODE,
             backgroundOpacity = prefs[Keys.OPACITY] ?: DEFAULT_OPACITY,
             marginDp = prefs[Keys.MARGIN] ?: DEFAULT_MARGIN,
-            autoUpdate = prefs[Keys.AUTO_UPDATE] ?: DEFAULT_AUTO_UPDATE
+            autoUpdate = prefs[Keys.AUTO_UPDATE] ?: DEFAULT_AUTO_UPDATE,
+            weeksToShow = (prefs[Keys.WEEKS] ?: DEFAULT_WEEKS).coerceIn(MIN_WEEKS, MAX_WEEKS)
         )
     }
 
@@ -75,7 +78,8 @@ class RentDataStore(private val context: Context) {
         darkMode: Boolean,
         backgroundOpacity: Int,
         marginDp: Int,
-        autoUpdate: Boolean
+        autoUpdate: Boolean,
+        weeksToShow: Int
     ) {
         context.dataStore.edit { prefs ->
             prefs[Keys.USERNAME] = username.trim()
@@ -86,6 +90,7 @@ class RentDataStore(private val context: Context) {
             prefs[Keys.OPACITY] = backgroundOpacity.coerceIn(0, 100)
             prefs[Keys.MARGIN] = marginDp.coerceIn(0, MAX_MARGIN)
             prefs[Keys.AUTO_UPDATE] = autoUpdate
+            prefs[Keys.WEEKS] = weeksToShow.coerceIn(MIN_WEEKS, MAX_WEEKS)
         }
     }
 
@@ -110,5 +115,8 @@ class RentDataStore(private val context: Context) {
         const val DEFAULT_MARGIN = 0
         const val DEFAULT_AUTO_UPDATE = true
         const val MAX_MARGIN = 32
+        const val DEFAULT_WEEKS = 12
+        const val MIN_WEEKS = 4
+        const val MAX_WEEKS = 16
     }
 }
