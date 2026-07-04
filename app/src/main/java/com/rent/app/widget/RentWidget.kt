@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -21,11 +22,11 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
-import androidx.glance.layout.wrapContentWidth
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
@@ -73,8 +74,10 @@ class RentWidget : GlanceAppWidget() {
     }
 }
 
-private const val CELL_DP = 12
-private const val CELL_GAP_DP = 3
+private const val CARD_H_PADDING = 12f
+private const val CELL_GAP = 2f
+private const val MIN_CELL = 3f
+private const val MAX_CELL = 16f
 
 /** Appearance settings the widget reads at render time. */
 data class WidgetAppearance(
@@ -87,29 +90,24 @@ data class WidgetAppearance(
 
 @Composable
 private fun WidgetContent(state: ContributionState, appearance: WidgetAppearance) {
-    // The card wraps its content width so it only spans as wide as the text /
-    // heatmap need, and is centered within whatever cell the launcher gives us.
+    // The card fills the full width/height the launcher gives us; the heatmap
+    // spans that width with cells sized to fit the chosen number of weeks.
     val card = GlanceModifier
-        .wrapContentWidth()
+        .fillMaxSize()
         .background(Palette.cardBackground(appearance.darkMode, appearance.opacity))
         .cornerRadius(20.dp)
-        .padding(horizontal = 16.dp, vertical = (12 + appearance.marginDp).dp)
+        .padding(horizontal = CARD_H_PADDING.dp, vertical = (12 + appearance.marginDp).dp)
 
-    Box(
-        modifier = GlanceModifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!state.configured || state.days.isEmpty() && state.lastUpdatedEpochMs == 0L) {
-            PlaceholderContent(card.clickable(actionStartActivity<MainActivity>()))
-        } else {
-            Column(
-                modifier = card.clickable(actionRunCallback<RefreshAction>()),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                StatusSection(state, appearance.palette)
-                Spacer(GlanceModifier.height(12.dp))
-                Heatmap(state.days, appearance.palette, appearance.weeksToShow)
-            }
+    if (!state.configured || state.days.isEmpty() && state.lastUpdatedEpochMs == 0L) {
+        PlaceholderContent(card.clickable(actionStartActivity<MainActivity>()))
+    } else {
+        Column(
+            modifier = card.clickable(actionRunCallback<RefreshAction>()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            StatusSection(state, appearance.palette)
+            Spacer(GlanceModifier.height(12.dp))
+            Heatmap(state.days, appearance.palette, appearance.weeksToShow)
         }
     }
 }
@@ -117,10 +115,10 @@ private fun WidgetContent(state: ContributionState, appearance: WidgetAppearance
 @Composable
 private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
     val paid = state.rentPaidToday
-    // Main text follows the chosen palette (green / violet / amber).
+    // Main text AND status follow the chosen palette (green / violet / amber).
     val accent = palette.accent
     val statusText = if (paid) "Rent Paid ✅" else "Rent Due ⚠️"
-    val statusColor = if (paid) Palette.PaidAccent else Palette.DueAccent
+    val statusColor = palette.accent
     val subtitle = if (paid) {
         "${state.todayCount} contributions today"
     } else {
@@ -172,23 +170,29 @@ private fun StatusSection(state: ContributionState, palette: HeatmapPalette) {
 private fun Heatmap(days: List<ContributionDay>, palette: HeatmapPalette, weeksToShow: Int) {
     val columns = weeksToShow.coerceIn(RentDataStore.MIN_WEEKS, RentDataStore.MAX_WEEKS)
     val weeks = buildWeeks(days).takeLast(columns)
+    val cols = weeks.size.coerceAtLeast(1)
 
-    // wrapContentWidth so the heatmap hugs its columns and stays centered.
-    Row(modifier = GlanceModifier.wrapContentWidth()) {
+    // Size each cell so the whole grid spans the widget's width (GitHub-style
+    // full-year graph). Cell size shrinks/grows with the number of weeks.
+    val widthDp = LocalSize.current.width.value
+    val available = widthDp - CARD_H_PADDING * 2
+    val cell = ((available - (cols - 1) * CELL_GAP) / cols).coerceIn(MIN_CELL, MAX_CELL)
+
+    Row(modifier = GlanceModifier.fillMaxWidth()) {
         weeks.forEachIndexed { index, week ->
             Column {
                 week.forEach { day ->
                     Box(
                         modifier = GlanceModifier
-                            .size(CELL_DP.dp)
+                            .size(cell.dp)
                             .background(palette.heatColor(day?.count ?: 0))
                             .cornerRadius(2.dp)
                     ) {}
-                    Spacer(GlanceModifier.height(CELL_GAP_DP.dp))
+                    Spacer(GlanceModifier.height(CELL_GAP.dp))
                 }
             }
             if (index != weeks.lastIndex) {
-                Spacer(GlanceModifier.width(CELL_GAP_DP.dp))
+                Spacer(GlanceModifier.width(CELL_GAP.dp))
             }
         }
     }

@@ -115,8 +115,8 @@ class RentDataStore(private val context: Context) {
         const val DEFAULT_MARGIN = 0
         const val DEFAULT_AUTO_UPDATE = true
         const val MAX_MARGIN = 32
-        const val DEFAULT_WEEKS = 12
+        const val DEFAULT_WEEKS = 40
         const val MIN_WEEKS = 4
-        const val MAX_WEEKS = 16
+        const val MAX_WEEKS = 53
     }
 }
