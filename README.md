@@ -1,4 +1,4 @@
-# Rent — GitHub Contribution Streak Widget
+# Rent - GitHub Contribution Streak Widget
 
 A native Android app whose only job is a **home-screen widget** that keeps you
 accountable to your GitHub habit. It shows:
